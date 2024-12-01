@@ -1,0 +1,46 @@
+name: Build and Push Multiple Docker Images to ECR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images to ECR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Find directories with Dockerfile
+        id: find-dirs
+        run: |
+          DOCKER_DIRS=$(find ./lambda -type f -name "Dockerfile" -exec dirname {} \;)
+          echo "DOCKER_DIRS=${DOCKER_DIRS}" >> $GITHUB_ENV
+
+      - name: Build and Push Docker images
+        run: |
+          for dir in $DOCKER_DIRS; do
+            GIT_SHA=${{ github.sha }}
+            LAMBDA_NAME=$(basename $dir)
+            ECR_REPOSITORY="${LAMBDA_NAME}_prod"
+            ECR_REGISTRY="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com"
+            ECR_IMAGE=${ECR_REGISTRY}/${ECR_REPOSITORY}:${GIT_SHA}
+
+            echo "Processing ${dir}..."
+            docker build $dir -t ${ECR_IMAGE}
+            docker push ${ECR_IMAGE}
+          done
