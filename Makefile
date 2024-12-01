@@ -43,7 +43,7 @@ test:
 	curl "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
 
 .PHONY: create-repo-dev
-create-repo:
+create-repo-dev:
 	aws ecr get-login-password \
 		--region $(AWS_REGION) \
 		| docker login --username AWS --password-stdin $(ECR_URI)
@@ -82,11 +82,16 @@ apply:
 .PHONY: destroy
 destroy:
 	terraform -chdir=./infra/envs/dev destroy -auto-approve
+
+.PHONY: delete-repo-dev
+delete-repo:
 	aws ecr delete-repository \
 		--repository-name $(LAMBDA_NAME)_dev \
 		--region $(AWS_REGION) \
 		--force
+
+.PHONY: delete-repo-prod
+delete-repo-prod:
 	aws ecr delete-repository \
 		--repository-name $(LAMBDA_NAME)_prod \
-		--region $(AWS_REGION) \
-		--force
+		--region $(AWS_REGION)
